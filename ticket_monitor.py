@@ -42,6 +42,7 @@ def home():
 def log_event(message):
     with open("ticket_log.txt", "a") as log_file:
         log_file.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
+    print(message, flush=True)  # Also print to Render logs
 
 
 # === FETCH TICKETS ===
@@ -49,16 +50,14 @@ def fetch_recent_tickets():
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets?order_type=desc&page=1&per_page=100"
     try:
         response = requests.get(url, auth=(API_KEY, "X"))
-        print(f"🔍 API Status: {response.status_code}")
+        log_event(f"🔍 API Status: {response.status_code}")
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"❌ Error fetching tickets: {response.text}")
-            log_event(f"Error fetching tickets: {response.status_code} - {response.text}")
+            log_event(f"❌ Error fetching tickets: {response.text}")
             return []
     except Exception as e:
-        print(f"❌ Request failed: {e}")
-        log_event(f"Request exception: {e}")
+        log_event(f"❌ Request failed: {e}")
         return []
 
 
@@ -77,11 +76,10 @@ def is_urgent(text):
             max_tokens=5,
         )
         result = response.choices[0].message.content.strip().lower()
-        print(f"🧠 GPT-4.1 Response: {result}")
+        log_event(f"🧠 GPT-4.1 Response: {result}")
         return "true" in result
     except Exception as e:
-        print(f"❌ GPT API error: {e}")
-        log_event(f"GPT API error: {e}")
+        log_event(f"❌ GPT API error: {e}")
         return False
 
 
@@ -107,13 +105,11 @@ def send_alert_email(subject, body, ticket_url):
         with smtplib.SMTP("smtp.office365.com", 587) as server:
             server.starttls()
             server.login(EMAIL_FROM, EMAIL_PASS)
-            print(f"📨 Sending email to: {recipients}")
+            log_event(f"📨 Sending email to: {recipients}")
             server.sendmail(EMAIL_FROM, recipients, msg.as_string())
-            print("✅ Email sent!")
-            log_event(f"Sent urgent ticket email: {ticket_url}")
+            log_event("✅ Email sent!")
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
-        log_event(f"Email send failure: {e}")
+        log_event(f"❌ Failed to send email: {e}")
 
 
 # === TRACK PROCESSED TICKETS ===
@@ -131,11 +127,10 @@ def mark_processed(ticket_id):
 
 # === MAIN LOGIC ===
 def check_recent_tickets():
-    print("\n🔄 Checking tickets...")
+    log_event("\n🔄 Checking tickets...")
     tickets = fetch_recent_tickets()
-    print(f"Found {len(tickets)} tickets from API")
+    log_event(f"Found {len(tickets)} tickets from API")
     if not tickets:
-        print("⚠️ No tickets found.")
         return
 
     processed_ids = read_processed_ids()
@@ -157,29 +152,24 @@ def check_recent_tickets():
         full_text = f"{subject} {description}".strip()
         ticket_url = f"https://{FRESHDESK_DOMAIN}/a/tickets/{ticket_id}"
 
-        print(f"\n📝 Ticket ID: {ticket_id}")
-        print(f"📅 Created At: {created_at}")
-        print(f"📝 Subject: {subject}\n📩 Description: {description}")
-
         mark_processed(ticket_id)
 
         try:
             urgent = is_urgent(full_text)
             log_event(f"Processed ticket {ticket_id} | urgent={urgent}")
             if urgent:
-                print(f"🚨 Urgent ticket detected: {ticket_id}")
+                log_event(f"🚨 Urgent ticket detected: {ticket_id}")
                 send_alert_email(subject or "No Subject", description or "No Description", ticket_url)
             else:
-                print(f"✅ Ticket {ticket_id} is not urgent.")
+                log_event(f"✅ Ticket {ticket_id} is not urgent.")
         except Exception as e:
-            log_event(f"Processing error for ticket {ticket_id}: {e}")
-            print(f"❌ Error during ticket evaluation: {e}")
+            log_event(f"❌ Error processing ticket {ticket_id}: {e}")
 
 
 # === SCHEDULE JOB ===
 def schedule_job():
     schedule.every(1).minutes.do(check_recent_tickets)
-    print("⏱️ Scheduled to run every 1 minute.")
+    log_event("⏱️ Scheduled to run every 1 minute.")
     while True:
         schedule.run_pending()
         time.sleep(10)
@@ -187,8 +177,11 @@ def schedule_job():
 
 # === ENTRY POINT ===
 if __name__ == "__main__":
-    # Start the scheduler in a separate thread (non-daemon)
+    # Run scheduler in background
     Thread(target=schedule_job).start()
 
-    # Run Flask in the main thread (Render expects this)
+    # Run one immediate check for testing
+    check_recent_tickets()
+
+    # Run Flask in main thread (Render expects this)
     app.run(host="0.0.0.0", port=8080)
