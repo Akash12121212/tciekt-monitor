@@ -194,8 +194,8 @@ def check_recent_tickets():
 
 # === SCHEDULE JOB ===
 def schedule_job():
-    schedule.every(10).minutes.do(check_recent_tickets)
-    print("⏱️ Scheduled to run every 10 minutes.")
+    schedule.every(1).minutes.do(check_recent_tickets)
+    print("⏱️ Scheduled to run every 1 minutes.")
     while True:
         schedule.run_pending()
         time.sleep(10)
