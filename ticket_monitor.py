@@ -38,14 +38,10 @@ def home():
     return "✅ Ticket monitor is running."
 
 
-def run_web_server():
-    app.run(host="0.0.0.0", port=8080)
-
-
-# === LOGGING (optional) ===
+# === LOGGING ===
 def log_event(message):
     with open("ticket_log.txt", "a") as log_file:
-        log_file.write(f"[{datetime.utcnow().isoformat()}] {message}\n")
+        log_file.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
 
 
 # === FETCH MULTIPLE TICKETS ===
@@ -147,7 +143,7 @@ def check_recent_tickets():
         return
 
     processed_ids = read_processed_ids()
-    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=1)
 
     for ticket in tickets:
         ticket_id = str(ticket["id"])
@@ -158,7 +154,7 @@ def check_recent_tickets():
         if ticket_id in processed_ids:
             continue
 
-        # Skip if older than 10 minutes
+        # Skip if older than 1 minute
         if created_at < recent_cutoff:
             continue
 
@@ -195,7 +191,7 @@ def check_recent_tickets():
 # === SCHEDULE JOB ===
 def schedule_job():
     schedule.every(1).minutes.do(check_recent_tickets)
-    print("⏱️ Scheduled to run every 1 minutes.")
+    print("⏱️ Scheduled to run every 1 minute.")
     while True:
         schedule.run_pending()
         time.sleep(10)
@@ -203,5 +199,8 @@ def schedule_job():
 
 # === ENTRY POINT ===
 if __name__ == "__main__":
-    Thread(target=run_web_server).start()
-    schedule_job()
+    # Run scheduler in background
+    Thread(target=schedule_job, daemon=True).start()
+
+    # Run Flask web server in main thread
+    app.run(host="0.0.0.0", port=8080)
