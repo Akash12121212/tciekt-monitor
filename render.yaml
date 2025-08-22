@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ticket-monitor
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python ticket_monitor.py
+    envVars:
+      - key: FRESHDESK_DOMAIN
+        sync: false
+      - key: FRESHDESK_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_TO
+        sync: false
+      - key: TEAMS_CHANNEL_EMAIL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
