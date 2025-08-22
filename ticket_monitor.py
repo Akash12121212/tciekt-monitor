@@ -54,9 +54,7 @@ def fetch_recent_tickets():
             return response.json()
         else:
             print(f"❌ Error fetching tickets: {response.text}")
-            log_event(
-                f"Error fetching tickets: {response.status_code} - {response.text}"
-            )
+            log_event(f"Error fetching tickets: {response.status_code} - {response.text}")
             return []
     except Exception as e:
         print(f"❌ Request failed: {e}")
@@ -74,10 +72,7 @@ def is_urgent(text):
     try:
         response = client.chat.completions.create(
             model="gpt-4.1-nano",
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=5,
         )
@@ -138,6 +133,7 @@ def mark_processed(ticket_id):
 def check_recent_tickets():
     print("\n🔄 Checking tickets...")
     tickets = fetch_recent_tickets()
+    print(f"Found {len(tickets)} tickets from API")
     if not tickets:
         print("⚠️ No tickets found.")
         return
@@ -147,18 +143,12 @@ def check_recent_tickets():
 
     for ticket in tickets:
         ticket_id = str(ticket["id"])
-        created_at = datetime.fromisoformat(ticket["created_at"].replace(
-            "Z", "+00:00"))
+        created_at = datetime.fromisoformat(ticket["created_at"].replace("Z", "+00:00"))
 
-        # Skip if already processed
         if ticket_id in processed_ids:
             continue
-
-        # Skip if older than 1 minute
         if created_at < recent_cutoff:
             continue
-
-        # Skip if already assigned to someone
         if ticket.get("responder_id") is not None:
             continue
 
@@ -171,7 +161,6 @@ def check_recent_tickets():
         print(f"📅 Created At: {created_at}")
         print(f"📝 Subject: {subject}\n📩 Description: {description}")
 
-        # Mark it processed early to avoid duplicate attempts
         mark_processed(ticket_id)
 
         try:
@@ -179,8 +168,7 @@ def check_recent_tickets():
             log_event(f"Processed ticket {ticket_id} | urgent={urgent}")
             if urgent:
                 print(f"🚨 Urgent ticket detected: {ticket_id}")
-                send_alert_email(subject or "No Subject", description
-                                 or "No Description", ticket_url)
+                send_alert_email(subject or "No Subject", description or "No Description", ticket_url)
             else:
                 print(f"✅ Ticket {ticket_id} is not urgent.")
         except Exception as e:
@@ -199,8 +187,12 @@ def schedule_job():
 
 # === ENTRY POINT ===
 if __name__ == "__main__":
-    # Run scheduler in background
+    # Start Flask server in one thread
+    Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": 8080}, daemon=True).start()
+
+    # Start scheduler in another thread
     Thread(target=schedule_job, daemon=True).start()
 
-    # Run Flask web server in main thread
-    app.run(host="0.0.0.0", port=8080)
+    # Keep main thread alive for Render
+    while True:
+        time.sleep(1)
