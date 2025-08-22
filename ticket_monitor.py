@@ -44,7 +44,7 @@ def log_event(message):
         log_file.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
 
 
-# === FETCH MULTIPLE TICKETS ===
+# === FETCH TICKETS ===
 def fetch_recent_tickets():
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets?order_type=desc&page=1&per_page=100"
     try:
@@ -187,12 +187,8 @@ def schedule_job():
 
 # === ENTRY POINT ===
 if __name__ == "__main__":
-    # Start Flask server in one thread
-    Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": 8080}, daemon=True).start()
+    # Start the scheduler in a separate thread (non-daemon)
+    Thread(target=schedule_job).start()
 
-    # Start scheduler in another thread
-    Thread(target=schedule_job, daemon=True).start()
-
-    # Keep main thread alive for Render
-    while True:
-        time.sleep(1)
+    # Run Flask in the main thread (Render expects this)
+    app.run(host="0.0.0.0", port=8080)
