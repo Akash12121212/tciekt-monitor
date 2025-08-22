@@ -70,7 +70,7 @@ def is_urgent(text):
         f"Ticket message:\n{text}\n\nIs this urgent?")
     try:
         response = client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-4.1-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=5,
